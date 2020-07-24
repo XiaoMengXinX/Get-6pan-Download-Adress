@@ -1,0 +1,62 @@
+#!/bin/bash
+token=""
+token_sig=""
+parentPath="/"
+
+data=$(
+    curl -s 'https://api.6pan.cn/v3/files/list' \
+        -H 'authority: api.6pan.cn' \
+        -H 'accept: application/json, text/plain, */*' \
+        -H 'user-agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36' \
+        -H 'content-type: application/json' \
+        -H 'origin: https://v3-beta.6pan.cn' \
+        -H 'sec-fetch-site: same-site' \
+        -H 'sec-fetch-mode: cors' \
+        -H 'sec-fetch-dest: empty' \
+        -H "referer: https://v3-beta.6pan.cn/files/all/$parentPath" \
+        -H 'accept-language: zh-CN,zh;q=0.9,en-GB;q=0.8,en;q=0.7,zh-TW;q=0.6,ar-XB;q=0.5,ar;q=0.4,en-XA;q=0.3' \
+        -H "cookie: locale=zh-cn; token=$token; token.sig=$token_sig" \
+        --data-binary "{\"parentPath\":\"$parentPath\",\"name\":\"\",\"start\":0,\"limit\":20,\"orderby\":[]}" \
+        --compressed
+)
+
+dataList=$(echo $data|jq .dataList)
+let nub=0
+let i=0
+
+while [ "$status" != 'null' ]
+do
+    eval file$nub="$(echo $dataList|jq .[$nub].identity|sed $'s/\"//g')"
+    status=$(echo $dataList|jq .[$nub])
+    #eval echo \$file${nub}
+    let nub=$nub+1
+done
+
+nub=$[$nub-2]
+#echo $nub
+
+while [ $i -le $nub ]
+do
+    identity=$(eval echo \$file${i})
+    #echo $identity
+    download=$(curl -s 'https://api.6pan.cn/v3/file/download' \
+        -H 'authority: api.6pan.cn' \
+        -H 'accept: application/json, text/plain, */*' \
+        -H 'user-agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Safari/537.36' \
+        -H 'content-type: application/json' \
+        -H 'origin: https://v3-beta.6pan.cn' \
+        -H 'sec-fetch-site: same-site' \
+        -H 'sec-fetch-mode: cors' \
+        -H 'sec-fetch-dest: empty' \
+        -H "referer: https://v3-beta.6pan.cn/files/all/$parentPath" \
+        -H 'accept-language: zh-CN,zh;q=0.9,en-GB;q=0.8,en;q=0.7,zh-TW;q=0.6,ar-XB;q=0.5,ar;q=0.4,en-XA;q=0.3' \
+        -H "cookie: locale=zh-cn; token=$token; token.sig=$token_sig" \
+        --data-binary {\"identity\":\"$identity\"} \
+        --compressed
+    )
+    link=$(echo $download|jq .downloadAddress|sed $'s/\"//g')
+    echo $link
+    sleep 5
+    #eval echo \$file${nub}
+    let i=$i+1
+done
